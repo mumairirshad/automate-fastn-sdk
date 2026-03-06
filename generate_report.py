@@ -51,7 +51,7 @@ def collect_cli_outputs():
     """Run every CLI command and collect actual outputs."""
     results = []
 
-    def add(test_id, category, feature, command, description, args, timeout=30, expect_fail=False, skip=False, skip_reason=""):
+    def add(test_id, category, feature, command, description, args, timeout=30, expect_fail=False, skip=False, skip_reason="", expect_curl=False):
         if skip:
             results.append({
                 "id": test_id, "category": category, "feature": feature,
@@ -61,9 +61,8 @@ def collect_cli_outputs():
             return
         rc, stdout, stderr = run_cmd(args, timeout=timeout)
         combined = (stdout + "\n" + stderr).strip()
-        # Truncate very long outputs
-        if len(combined) > 2000:
-            combined = combined[:2000] + "... [truncated]"
+        # Determine status on FULL output BEFORE truncating.
+        # [curl] snippets may appear after 2000 chars; truncating first causes false FAILs.
         if expect_fail:
             # Command is expected to fail (e.g. nonexistent resource). PASS if it fails gracefully.
             # But 401 auth errors are real bugs, not graceful failures.
@@ -72,8 +71,19 @@ def collect_cli_outputs():
             else:
                 # Any output means it handled the bad input (error msg, not found, etc.)
                 status = "PASS" if len(combined) > 0 else "FAIL"
+        elif expect_curl:
+            # Verbose commands that make API calls MUST return a [curl] snippet.
+            if rc != 0:
+                status = "FAIL"
+            elif "[curl]" not in combined:
+                status = "FAIL"
+            else:
+                status = "PASS"
         else:
             status = "PASS" if rc == 0 else "FAIL"
+        # Truncate AFTER status check — for display only
+        if len(combined) > 2000:
+            combined = combined[:2000] + "... [truncated]"
         results.append({
             "id": test_id, "category": category, "feature": feature,
             "command": command, "description": description,
@@ -345,38 +355,86 @@ def collect_cli_outputs():
         "Shows kit config usage with -d/--data flag", ["fastn", "kit", "config", "--help"])
 
     # --- Verbose (-v / --verbose) combinations ---
+    # Commands that call live API must return a [curl] snippet — FAIL if missing.
+    # Commands that read only local data (version, connector ls) do NOT get expect_curl.
     add("TC-OPT-014", "CLI", "Verbose", "fastn -v whoami",
-        "Short verbose shows [API] trace for whoami", ["fastn", "-v", "whoami"], timeout=60)
+        "Short verbose whoami — must show [API] trace + [curl] snippet",
+        ["fastn", "-v", "whoami"], timeout=60, expect_curl=True)
     add("TC-OPT-015", "CLI", "Verbose", "fastn --verbose whoami",
-        "Long verbose shows [API] trace for whoami", ["fastn", "--verbose", "whoami"], timeout=60)
+        "Long verbose whoami — must show [API] trace + [curl] snippet",
+        ["fastn", "--verbose", "whoami"], timeout=60, expect_curl=True)
     add("TC-OPT-016", "CLI", "Verbose", "fastn -v version",
-        "Short verbose on version (no API call — local data)", ["fastn", "-v", "version"])
+        "Short verbose version — local data only, no [API] call expected",
+        ["fastn", "-v", "version"])
     add("TC-OPT-017", "CLI", "Verbose", "fastn --verbose version",
-        "Long verbose on version (no API call — local data)", ["fastn", "--verbose", "version"])
+        "Long verbose version — local data only, no [API] call expected",
+        ["fastn", "--verbose", "version"])
     add("TC-OPT-018", "CLI", "Verbose", "fastn -v connector ls",
-        "Short verbose on connector ls (local registry — no [API])", ["fastn", "-v", "connector", "ls"])
+        "Short verbose connector ls — reads local registry, no [API] call expected",
+        ["fastn", "-v", "connector", "ls"])
     add("TC-OPT-019", "CLI", "Verbose", "fastn --verbose connector ls",
-        "Long verbose on connector ls (local registry — no [API])", ["fastn", "--verbose", "connector", "ls"])
+        "Long verbose connector ls — reads local registry, no [API] call expected",
+        ["fastn", "--verbose", "connector", "ls"])
     add("TC-OPT-020", "CLI", "Verbose", "fastn -v connector ls --active",
-        "Short verbose on connector ls --active shows [API] trace", ["fastn", "-v", "connector", "ls", "--active"], timeout=60)
+        "Short verbose connector ls --active — must show [API] trace + [curl] snippet",
+        ["fastn", "-v", "connector", "ls", "--active"], timeout=60, expect_curl=True)
     add("TC-OPT-021", "CLI", "Verbose", "fastn --verbose connector ls --active",
-        "Long verbose on connector ls --active shows [API] trace", ["fastn", "--verbose", "connector", "ls", "--active"], timeout=60)
+        "Long verbose connector ls --active — must show [API] trace + [curl] snippet",
+        ["fastn", "--verbose", "connector", "ls", "--active"], timeout=60, expect_curl=True)
     add("TC-OPT-022", "CLI", "Verbose", "fastn -v flow ls",
-        "Short verbose on flow ls shows [API] trace", ["fastn", "-v", "flow", "ls"], timeout=60)
+        "Short verbose flow ls — must show [API] GraphQL trace + [curl] snippet",
+        ["fastn", "-v", "flow", "ls"], timeout=60, expect_curl=True)
     add("TC-OPT-023", "CLI", "Verbose", "fastn --verbose flow ls",
-        "Long verbose on flow ls shows [API] trace", ["fastn", "--verbose", "flow", "ls"], timeout=60)
+        "Long verbose flow ls — must show [API] GraphQL trace + [curl] snippet",
+        ["fastn", "--verbose", "flow", "ls"], timeout=60, expect_curl=True)
     add("TC-OPT-024", "CLI", "Verbose", "fastn -v kit ls",
-        "Short verbose on kit ls shows [API] trace", ["fastn", "-v", "kit", "ls"], timeout=60)
+        "Short verbose kit ls — must show [API] GraphQL trace + [curl] snippet",
+        ["fastn", "-v", "kit", "ls"], timeout=60, expect_curl=True)
     add("TC-OPT-025", "CLI", "Verbose", "fastn --verbose kit ls",
-        "Long verbose on kit ls shows [API] trace", ["fastn", "--verbose", "kit", "ls"], timeout=60)
+        "Long verbose kit ls — must show [API] GraphQL trace + [curl] snippet",
+        ["fastn", "--verbose", "kit", "ls"], timeout=60, expect_curl=True)
     add("TC-OPT-026", "CLI", "Verbose", "fastn -v kit config",
-        "Short verbose on kit config shows [API] trace", ["fastn", "-v", "kit", "config"], timeout=60)
+        "Short verbose kit config — must show [API] widgetMetadata trace + [curl] snippet",
+        ["fastn", "-v", "kit", "config"], timeout=60, expect_curl=True)
     add("TC-OPT-027", "CLI", "Verbose", "fastn --verbose kit config",
-        "Long verbose on kit config shows [API] trace", ["fastn", "--verbose", "kit", "config"], timeout=60)
+        "Long verbose kit config — must show [API] widgetMetadata trace + [curl] snippet",
+        ["fastn", "--verbose", "kit", "config"], timeout=60, expect_curl=True)
     add("TC-OPT-028", "CLI", "Verbose", "fastn -v skill",
-        "Short verbose on skill shows [API] trace", ["fastn", "-v", "skill"], timeout=60)
+        "Short verbose skill — must show [API] listUCLAgents trace + [curl] snippet",
+        ["fastn", "-v", "skill"], timeout=60, expect_curl=True)
     add("TC-OPT-029", "CLI", "Verbose", "fastn --verbose skill",
-        "Long verbose on skill shows [API] trace", ["fastn", "--verbose", "skill"], timeout=60)
+        "Long verbose skill — must show [API] listUCLAgents trace + [curl] snippet",
+        ["fastn", "--verbose", "skill"], timeout=60, expect_curl=True)
+    add("TC-OPT-033", "CLI", "Verbose", "fastn -v flow run testFlow",
+        "Short verbose flow run — must show [API] execution trace + [curl] snippet",
+        ["fastn", "-v", "flow", "run", "testFlow"], timeout=60, expect_curl=True)
+    add("TC-OPT-034", "CLI", "Verbose", "fastn --verbose flow run testFlow",
+        "Long verbose flow run — must show [API] execution trace + [curl] snippet",
+        ["fastn", "--verbose", "flow", "run", "testFlow"], timeout=60, expect_curl=True)
+    add("TC-OPT-035", "CLI", "Verbose", "fastn -v kit get Gmail",
+        "Short verbose kit get Gmail — must show [API] trace + [curl] snippet",
+        ["fastn", "-v", "kit", "get", "Gmail"], timeout=30, expect_curl=True)
+    add("TC-OPT-036", "CLI", "Verbose", "fastn --verbose kit get Gmail",
+        "Long verbose kit get Gmail — must show [API] trace + [curl] snippet",
+        ["fastn", "--verbose", "kit", "get", "Gmail"], timeout=30, expect_curl=True)
+    add("TC-OPT-037", "CLI", "Verbose", "fastn -v connector schema github",
+        "Short verbose connector schema — local registry read, no [API] call expected",
+        ["fastn", "-v", "connector", "schema", "github"], timeout=30)
+    add("TC-OPT-038", "CLI", "Verbose", "fastn --verbose connector schema github",
+        "Long verbose connector schema — local registry read, no [API] call expected",
+        ["fastn", "--verbose", "connector", "schema", "github"], timeout=30)
+    add("TC-OPT-039", "CLI", "Verbose", "fastn -v flow schema testFlow",
+        "Short verbose flow schema — must show [API] trace + [curl] snippet",
+        ["fastn", "-v", "flow", "schema", "testFlow"], timeout=30, expect_curl=True)
+    add("TC-OPT-040", "CLI", "Verbose", "fastn --verbose flow schema testFlow",
+        "Long verbose flow schema — must show [API] trace + [curl] snippet",
+        ["fastn", "--verbose", "flow", "schema", "testFlow"], timeout=30, expect_curl=True)
+    add("TC-OPT-041", "CLI", "Verbose", "fastn -v flow deploy testFlow -s LIVE",
+        "Short verbose flow deploy — must show [API] trace + [curl] snippet",
+        ["fastn", "-v", "flow", "deploy", "testFlow", "-s", "LIVE"], timeout=60, expect_curl=True)
+    add("TC-OPT-042", "CLI", "Verbose", "fastn --verbose flow deploy testFlow -s LIVE",
+        "Long verbose flow deploy — must show [API] trace + [curl] snippet",
+        ["fastn", "--verbose", "flow", "deploy", "testFlow", "-s", "LIVE"], timeout=60, expect_curl=True)
 
     # --- Connector ls flags ---
     add("TC-OPT-030", "CLI", "Connector Flags", "fastn connector ls --installed",
@@ -445,12 +503,18 @@ def collect_sdk_outputs():
 def collect_pytest_summary():
     """Run full test suite and return summary counts + individual results."""
     print("\n=== Running Full pytest Suite ===\n")
-    r = subprocess.run(
-        [sys.executable, "-m", "pytest", "tests/", "-v", "--tb=line"],
-        capture_output=True, text=True, timeout=360,
-        env=ENV, cwd=PROJECT_DIR,
-    )
-    output = r.stdout + "\n" + r.stderr
+    try:
+        r = subprocess.run(
+            [sys.executable, "-m", "pytest", "tests/", "-v", "--tb=line"],
+            capture_output=True, text=True, timeout=660,
+            env=ENV, cwd=PROJECT_DIR,
+        )
+        output = r.stdout + "\n" + r.stderr
+    except subprocess.TimeoutExpired as e:
+        stdout = (e.stdout or b"").decode("utf-8", errors="replace") if isinstance(e.stdout, bytes) else (e.stdout or "")
+        stderr = (e.stderr or b"").decode("utf-8", errors="replace") if isinstance(e.stderr, bytes) else (e.stderr or "")
+        output = stdout + "\n" + stderr + "\n[TIMEOUT] pytest suite exceeded 660s — partial results below."
+        print("[WARN] pytest timed out — partial results captured")
 
     # Parse summary line
     summary = {}

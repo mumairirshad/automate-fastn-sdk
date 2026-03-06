@@ -289,16 +289,22 @@ class TestVerboseGlobalFlag:
     """
 
     def test_short_v_whoami(self):
-        """TC-OPT-050: 'fastn -v whoami' exits 0, output unchanged from non-verbose."""
+        """TC-OPT-050: 'fastn -v whoami' exits 0, shows [API] trace and [curl] snippet."""
         r = run(["-v", "whoami"])
         assert r.returncode == 0, r.stderr
-        assert "automation@fastn.ai" in combined(r)
+        out = combined(r)
+        assert "automation@fastn.ai" in out
+        assert "[API]" in out, "Expected [API] trace in verbose whoami output"
+        assert "[curl]" in out, "Expected [curl] snippet in verbose whoami output"
 
     def test_long_verbose_whoami(self):
-        """TC-OPT-051: 'fastn --verbose whoami' exits 0, same as -v."""
+        """TC-OPT-051: 'fastn --verbose whoami' shows [API] trace and [curl] snippet."""
         r = run(["--verbose", "whoami"])
         assert r.returncode == 0, r.stderr
-        assert "automation@fastn.ai" in combined(r)
+        out = combined(r)
+        assert "automation@fastn.ai" in out
+        assert "[API]" in out, "Expected [API] trace in verbose whoami output"
+        assert "[curl]" in out, "Expected [curl] snippet in verbose whoami output"
 
     def test_short_v_version(self):
         """TC-OPT-052: 'fastn -v version' exits 0 (no API call, no [API] markers)."""
@@ -327,7 +333,7 @@ class TestVerboseGlobalFlag:
         assert "connectors" in combined(r).lower()
 
     def test_short_v_connector_ls_active_shows_api(self):
-        """TC-OPT-056: 'fastn -v connector ls --active' shows [API] markers (live API call)."""
+        """TC-OPT-056: 'fastn -v connector ls --active' shows [API] trace and [curl] snippet."""
         r = run(["-v", "connector", "ls", "--active"])
         assert r.returncode == 0, r.stderr
         out = combined(r)
@@ -335,6 +341,7 @@ class TestVerboseGlobalFlag:
         assert "expired" not in out.lower(), "Token expired in verbose connector ls --active"
         assert "[API]" in out, "Expected [API] trace in verbose output"
         assert "https://live.fastn.ai" in out
+        assert "[curl]" in out, "Expected [curl] snippet in verbose connector ls --active"
 
     def test_long_verbose_connector_ls_active_shows_api(self):
         """TC-OPT-057: 'fastn --verbose connector ls --active' shows [API] and curl snippet."""
@@ -347,35 +354,37 @@ class TestVerboseGlobalFlag:
         assert "[curl]" in out
 
     def test_short_v_flow_ls_shows_api(self):
-        """TC-OPT-058: 'fastn -v flow ls' shows [API] GraphQL call to /api/graphql.
+        """TC-OPT-058: 'fastn -v flow ls' shows [API] GraphQL call and [curl] snippet.
         NOTE: exit code may be non-zero due to BUG-003 (UnicodeEncodeError on table
         render with box-drawing chars on Windows cp1252). The [API] call itself succeeds.
         """
         r = run(["-v", "flow", "ls"])
         out = combined(r)
-        # Auth errors must never appear regardless of BUG-003
         assert "401" not in out, "Got 401 unauthorized — token may be invalid"
         assert "unauthorized" not in out.lower(), "Unauthorized error in flow ls"
         assert "expired" not in out.lower(), "Token expired in flow ls"
         assert "[API]" in out, "Expected [API] trace in verbose output for flow ls"
         assert "/api/graphql" in out
+        assert "[curl]" in out, "Expected [curl] snippet in verbose flow ls"
 
     def test_long_verbose_flow_ls_shows_api(self):
-        """TC-OPT-059: 'fastn --verbose flow ls' shows GraphQL query payload."""
+        """TC-OPT-059: 'fastn --verbose flow ls' shows GraphQL query payload and [curl] snippet."""
         r = run(["--verbose", "flow", "ls"])
         out = combined(r)
         assert "401" not in out, "Got 401 unauthorized — token may be invalid"
         assert "expired" not in out.lower(), "Token expired"
         assert "[API]" in out
         assert "graphql" in out.lower()
+        assert "[curl]" in out, "Expected [curl] snippet in verbose flow ls"
 
     def test_short_v_kit_ls_shows_api(self):
-        """TC-OPT-060: 'fastn -v kit ls' shows [API] GraphQL call."""
+        """TC-OPT-060: 'fastn -v kit ls' shows [API] GraphQL call and [curl] snippet."""
         r = run(["-v", "kit", "ls"])
         out = combined(r)
         assert "401" not in out, "Got 401 unauthorized — token may be invalid"
         assert "expired" not in out.lower(), "Token expired"
         assert "[API]" in out
+        assert "[curl]" in out, "Expected [curl] snippet in verbose kit ls"
         assert "widgetConnectors" in out or "graphql" in out.lower()
 
     def test_long_verbose_kit_ls_shows_api(self):
@@ -388,13 +397,14 @@ class TestVerboseGlobalFlag:
         assert "[curl]" in out
 
     def test_short_v_kit_config_shows_api(self):
-        """TC-OPT-062: 'fastn -v kit config' shows [API] call for widgetMetadata query."""
+        """TC-OPT-062: 'fastn -v kit config' shows [API] call and [curl] snippet."""
         r = run(["-v", "kit", "config"])
         assert r.returncode == 0, r.stderr
         out = combined(r)
         assert "401" not in out, "Got 401 unauthorized — token may be invalid"
         assert "expired" not in out.lower(), "Token expired"
         assert "[API]" in out
+        assert "[curl]" in out, "Expected [curl] snippet in verbose kit config"
         assert "widgetMetadata" in out
 
     def test_long_verbose_kit_config_shows_api(self):
@@ -408,13 +418,14 @@ class TestVerboseGlobalFlag:
         assert "[curl]" in out
 
     def test_short_v_skill_shows_api(self):
-        """TC-OPT-064: 'fastn -v skill' shows [API] GraphQL call for listUCLAgents."""
+        """TC-OPT-064: 'fastn -v skill' shows [API] GraphQL call and [curl] snippet."""
         r = run(["-v", "skill"])
         assert r.returncode == 0, r.stderr
         out = combined(r)
         assert "401" not in out, "Got 401 unauthorized — token may be invalid"
         assert "expired" not in out.lower(), "Token expired"
         assert "[API]" in out
+        assert "[curl]" in out, "Expected [curl] snippet in verbose skill"
         assert "listUCLAgents" in out or "graphql" in out.lower()
 
     def test_long_verbose_skill_shows_api(self):
@@ -426,6 +437,100 @@ class TestVerboseGlobalFlag:
         assert "expired" not in out.lower(), "Token expired"
         assert "[API]" in out
         assert "[curl]" in out
+
+    def test_short_v_flow_run_shows_api(self):
+        """TC-OPT-066: 'fastn -v flow run testFlow' shows [API] call and [curl] snippet."""
+        r = run(["-v", "flow", "run", "testFlow"], timeout=60)
+        out = combined(r)
+        assert "401" not in out, "Got 401 unauthorized — token may be invalid"
+        assert "expired" not in out.lower(), "Token expired"
+        assert "[API]" in out, "Expected [API] trace in verbose flow run testFlow"
+        assert "[curl]" in out, "Expected [curl] snippet in verbose flow run testFlow"
+
+    def test_long_verbose_flow_run_shows_api(self):
+        """TC-OPT-067: 'fastn --verbose flow run testFlow' shows [API] and [curl] snippet."""
+        r = run(["--verbose", "flow", "run", "testFlow"], timeout=60)
+        out = combined(r)
+        assert "401" not in out, "Got 401 unauthorized — token may be invalid"
+        assert "expired" not in out.lower(), "Token expired"
+        assert "[API]" in out, "Expected [API] trace in verbose flow run testFlow"
+        assert "[curl]" in out, "Expected [curl] snippet in verbose flow run testFlow"
+
+    def test_short_v_kit_get_shows_api(self):
+        """TC-OPT-068: 'fastn -v kit get Gmail' shows [API] call and [curl] snippet."""
+        r = run(["-v", "kit", "get", "Gmail"], timeout=30)
+        assert r.returncode == 0, r.stderr
+        out = combined(r)
+        assert "401" not in out, "Got 401 unauthorized — token may be invalid"
+        assert "expired" not in out.lower(), "Token expired"
+        assert "[API]" in out, "Expected [API] trace in verbose kit get Gmail"
+        assert "[curl]" in out, "Expected [curl] snippet in verbose kit get Gmail"
+
+    def test_long_verbose_kit_get_shows_api(self):
+        """TC-OPT-069: 'fastn --verbose kit get Gmail' shows [API] and [curl] snippet."""
+        r = run(["--verbose", "kit", "get", "Gmail"], timeout=30)
+        assert r.returncode == 0, r.stderr
+        out = combined(r)
+        assert "401" not in out, "Got 401 unauthorized — token may be invalid"
+        assert "expired" not in out.lower(), "Token expired"
+        assert "[API]" in out, "Expected [API] trace in verbose kit get Gmail"
+        assert "[curl]" in out, "Expected [curl] snippet in verbose kit get Gmail"
+
+    def test_short_v_connector_schema_local(self):
+        """TC-OPT-074: 'fastn -v connector schema github' exits 0 — local registry, no [API] call."""
+        r = run(["-v", "connector", "schema", "github"], timeout=30)
+        assert r.returncode == 0, r.stderr
+        out = combined(r)
+        assert "input" in out.lower() or "output" in out.lower(), \
+            "Expected schema fields in connector schema output"
+
+    def test_long_verbose_connector_schema_local(self):
+        """TC-OPT-075: 'fastn --verbose connector schema github' exits 0 — local registry, no [API] call."""
+        r = run(["--verbose", "connector", "schema", "github"], timeout=30)
+        assert r.returncode == 0, r.stderr
+        out = combined(r)
+        assert "input" in out.lower() or "output" in out.lower(), \
+            "Expected schema fields in connector schema output"
+
+    def test_short_v_flow_schema_shows_api(self):
+        """TC-OPT-076: 'fastn -v flow schema testFlow' shows [API] trace and [curl] snippet."""
+        r = run(["-v", "flow", "schema", "testFlow"], timeout=30)
+        assert r.returncode == 0, r.stderr
+        out = combined(r)
+        assert "401" not in out, "Got 401 unauthorized — token may be invalid"
+        assert "expired" not in out.lower(), "Token expired"
+        assert "[API]" in out, "Expected [API] trace in verbose flow schema testFlow"
+        assert "[curl]" in out, "Expected [curl] snippet in verbose flow schema testFlow"
+
+    def test_long_verbose_flow_schema_shows_api(self):
+        """TC-OPT-077: 'fastn --verbose flow schema testFlow' shows [API] and [curl] snippet."""
+        r = run(["--verbose", "flow", "schema", "testFlow"], timeout=30)
+        assert r.returncode == 0, r.stderr
+        out = combined(r)
+        assert "401" not in out, "Got 401 unauthorized — token may be invalid"
+        assert "expired" not in out.lower(), "Token expired"
+        assert "[API]" in out, "Expected [API] trace in verbose flow schema testFlow"
+        assert "[curl]" in out, "Expected [curl] snippet in verbose flow schema testFlow"
+
+    def test_short_v_flow_deploy_shows_api(self):
+        """TC-OPT-078: 'fastn -v flow deploy testFlow -s LIVE' shows [API] trace and [curl] snippet."""
+        r = run(["-v", "flow", "deploy", "testFlow", "-s", "LIVE"], timeout=60)
+        assert r.returncode == 0, r.stderr
+        out = combined(r)
+        assert "401" not in out, "Got 401 unauthorized — token may be invalid"
+        assert "expired" not in out.lower(), "Token expired"
+        assert "[API]" in out, "Expected [API] trace in verbose flow deploy"
+        assert "[curl]" in out, "Expected [curl] snippet in verbose flow deploy"
+
+    def test_long_verbose_flow_deploy_shows_api(self):
+        """TC-OPT-079: 'fastn --verbose flow deploy testFlow -s LIVE' shows [API] and [curl] snippet."""
+        r = run(["--verbose", "flow", "deploy", "testFlow", "-s", "LIVE"], timeout=60)
+        assert r.returncode == 0, r.stderr
+        out = combined(r)
+        assert "401" not in out, "Got 401 unauthorized — token may be invalid"
+        assert "expired" not in out.lower(), "Token expired"
+        assert "[API]" in out, "Expected [API] trace in verbose flow deploy"
+        assert "[curl]" in out, "Expected [curl] snippet in verbose flow deploy"
 
 
 # ---------------------------------------------------------------------------

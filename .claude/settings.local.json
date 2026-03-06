@@ -122,7 +122,10 @@
       "Bash(git --version)",
       "Bash(git config --global user.name)",
       "Bash(git config --global user.email)",
-      "Bash(cmdkey /list)"
+      "Bash(cmdkey /list)",
+      "Bash(fastn connector sync --force)",
+      "Bash(python -c \"import fastn; import os; print\\(os.path.dirname\\(fastn.__file__\\)\\)\")",
+      "Bash(python -c \"from fastn.config import FASTN_DIR; print\\(FASTN_DIR\\)\")"
     ]
   }
 }
