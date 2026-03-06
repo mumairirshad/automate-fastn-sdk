@@ -1,0 +1,17 @@
+# Auth config (tokens generated dynamically by auth_helper.py)
+.fastn/config.json
+
+# Local connector registry (synced by 'fastn connector sync')
+.fastn/registry.json
+.fastn/manifest.json
+
+# Generated reports
+report/fastn_test_report.html
+report/test_cases.csv
+report/junit_results.xml
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
